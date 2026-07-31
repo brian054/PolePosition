@@ -8,6 +8,11 @@ public class Game1 : Game
 {
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
+    private Texture2D _pixel;
+
+    private static readonly Color SkyColor = new(100, 160, 255);
+    private static readonly Color GrassColor = new(40, 160, 60);
+    private const float HorizonRatio = 0.4f;
 
     public Game1()
     {
@@ -18,8 +23,6 @@ public class Game1 : Game
 
     protected override void Initialize()
     {
-        // TODO: Add your initialization logic here
-
         base.Initialize();
     }
 
@@ -27,7 +30,8 @@ public class Game1 : Game
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-        // TODO: use this.Content to load your game content here
+        _pixel = new Texture2D(GraphicsDevice, 1, 1);
+        _pixel.SetData(new[] { Color.White });
     }
 
     protected override void Update(GameTime gameTime)
@@ -35,16 +39,20 @@ public class Game1 : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
-        // TODO: Add your update logic here
-
         base.Update(gameTime);
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(Color.CornflowerBlue);
+        var viewport = GraphicsDevice.Viewport;
+        int horizonY = (int)(viewport.Height * HorizonRatio);
 
-        // TODO: Add your drawing code here
+        GraphicsDevice.Clear(SkyColor);
+
+        _spriteBatch.Begin();
+        _spriteBatch.Draw(_pixel, new Rectangle(0, 0, viewport.Width, horizonY), SkyColor);
+        _spriteBatch.Draw(_pixel, new Rectangle(0, horizonY, viewport.Width, viewport.Height - horizonY), GrassColor);
+        _spriteBatch.End();
 
         base.Draw(gameTime);
     }
