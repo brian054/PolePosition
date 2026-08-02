@@ -12,7 +12,14 @@ public class Game1 : Game
 
     private static readonly Color SkyColor = new(100, 160, 255);
     private static readonly Color GrassColor = new(40, 160, 60);
+    private static readonly Color RoadColor = new(120, 120, 120);
+    private static readonly Color ShoulderColor = Color.Black;
+
     private const float HorizonRatio = 0.4f;
+    private const float MinRoadHalfWidthRatio = 0.1f;
+    private const float MaxRoadHalfWidthRatio = 0.45f;
+    private const float MinShoulderWidth = 2f;
+    private const float MaxShoulderWidth = 16f;
 
     public Game1()
     {
@@ -46,12 +53,32 @@ public class Game1 : Game
     {
         var viewport = GraphicsDevice.Viewport;
         int horizonY = (int)(viewport.Height * HorizonRatio);
+        int groundHeight = viewport.Height - horizonY;
+        int cx = viewport.Width / 2;
+        float minRoadHalfWidth = viewport.Width * MinRoadHalfWidthRatio;
+        float maxRoadHalfWidth = viewport.Width * MaxRoadHalfWidthRatio;
 
         GraphicsDevice.Clear(SkyColor);
 
         _spriteBatch.Begin();
+
         _spriteBatch.Draw(_pixel, new Rectangle(0, 0, viewport.Width, horizonY), SkyColor);
-        _spriteBatch.Draw(_pixel, new Rectangle(0, horizonY, viewport.Width, viewport.Height - horizonY), GrassColor);
+        _spriteBatch.Draw(_pixel, new Rectangle(0, horizonY, viewport.Width, groundHeight), GrassColor);
+
+        if (groundHeight > 0)
+        {
+            for (int y = horizonY; y < viewport.Height; y++)
+            {
+                float t = (y - horizonY) / (float)groundHeight;
+                int roadHalfWidth = (int)(minRoadHalfWidth + t * (maxRoadHalfWidth - minRoadHalfWidth));
+                int shoulderWidth = (int)(MinShoulderWidth + t * (MaxShoulderWidth - MinShoulderWidth));
+
+                _spriteBatch.Draw(_pixel, new Rectangle(cx - roadHalfWidth - shoulderWidth, y, shoulderWidth, 1), ShoulderColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(cx - roadHalfWidth, y, roadHalfWidth * 2, 1), RoadColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(cx + roadHalfWidth, y, shoulderWidth, 1), ShoulderColor);
+            }
+        }
+
         _spriteBatch.End();
 
         base.Draw(gameTime);
