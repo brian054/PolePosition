@@ -1,0 +1,86 @@
+Pole Position — road drawing notes
+=================================
+
+THE TRICK
+---------
+The road is not one big shape. It is painted one horizontal row at a time
+from the horizon down to the bottom of the screen.
+
+Each row draws three short bars around the screen center:
+  1) left curb (black)
+  2) gray road
+  3) right curb (black)
+
+Rows near the horizon are narrow (far away).
+Rows near the bottom are wide (close to the camera).
+That creates the classic trapezoid / perspective look.
+
+
+FLOW OF Draw()
+--------------
+1. Read the window size (viewport).
+2. Figure out where the horizon is (horizonRow) from SkyHeightFraction.
+3. Clear the screen, then draw the sky band and the full grass band.
+4. Loop screenRow from horizonRow to the bottom of the window:
+   a. depthFromHorizon = how far down this row is (0 = far, 1 = near)
+   b. halfRoadWidth    = lerp far road width -> near road width
+   c. curbWidth        = lerp far curb width -> near curb width
+   d. Draw left curb, gray road, right curb centered on roadCenterX
+5. End SpriteBatch.
+
+
+VARIABLE GLOSSARY
+-----------------
+_pixel
+  1x1 white texture used as a "paintbrush" for colored rectangles.
+
+SkyColor / GrassColor / RoadColor / CurbColor
+  Tint colors for sky, grass, road surface, and road edges.
+
+SkyHeightFraction
+  How much of the screen height is sky (0.4 = top 40%).
+
+FarRoadHalfWidthFraction
+  At the horizon: half the road width as a fraction of screen width.
+  "Half" because we measure left/right from the center.
+
+NearRoadHalfWidthFraction
+  At the bottom of the screen: half the road width as a fraction
+  of screen width.
+
+FarCurbWidthPixels / NearCurbWidthPixels
+  Black curb thickness in pixels at the horizon (far) and bottom (near).
+
+horizonRow
+  Y pixel where sky meets ground. Road drawing starts here.
+
+groundRowCount
+  How many rows exist from the horizon to the bottom of the screen.
+
+roadCenterX
+  Horizontal center of the road (middle of the window for a straight road).
+
+farRoadHalfWidthPixels / nearRoadHalfWidthPixels
+  Far/near half-road widths converted from fractions into actual pixels
+  for this window size.
+
+screenRow
+  The current horizontal scanline (Y) being painted in the loop.
+
+depthFromHorizon
+  0.0 at the horizon (far), 1.0 at the bottom (near).
+  Used to blend widths between far and near.
+
+halfRoadWidth
+  Half the gray road width on this screenRow, in pixels.
+
+curbWidth
+  Black curb width on this screenRow, in pixels.
+
+
+DRAWING ONE ROW (around roadCenterX)
+------------------------------------
+Left curb starts at:  roadCenterX - halfRoadWidth - curbWidth
+Gray road starts at:  roadCenterX - halfRoadWidth
+                      width = halfRoadWidth * 2
+Right curb starts at: roadCenterX + halfRoadWidth
