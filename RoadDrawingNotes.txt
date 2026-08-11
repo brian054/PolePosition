@@ -6,14 +6,32 @@ THE TRICK
 The road is not one big shape. It is painted one horizontal row at a time
 from the horizon down to the bottom of the screen.
 
-Each row draws three short bars around the screen center:
+Each row draws up to four short bars around the screen center:
   1) left curb (black)
   2) gray road
   3) right curb (black)
+  4) white center dash (only on dash rows, not gap rows)
 
 Rows near the horizon are narrow (far away).
 Rows near the bottom are wide (close to the camera).
 That creates the classic trapezoid / perspective look.
+
+
+SCROLL / INFINITE ROAD
+----------------------
+Holding Enter advances _roadScroll at a fixed RoadScrollSpeed.
+Releasing Enter freezes the road.
+
+For each screen row we map depth to a world Z with:
+  worldZ = 1 / max(depthFromHorizon, DepthEpsilon)
+
+Then:
+  stripePos = worldZ + _roadScroll
+  phase     = stripePos % (DashLength + GapLength)
+
+If phase is in the dash half of the period, draw the center line.
+Because worldZ packs near the horizon, dashes look denser far away
+and longer up close — that sells the infinite-road motion.
 
 
 FLOW OF Draw()
@@ -26,6 +44,8 @@ FLOW OF Draw()
    b. halfRoadWidth    = lerp far road width -> near road width
    c. curbWidth        = lerp far curb width -> near curb width
    d. Draw left curb, gray road, right curb centered on roadCenterX
+   e. Map depth -> worldZ, add _roadScroll, decide dash vs gap
+   f. If dash: draw white center stripe (width lerped far -> near)
 5. End SpriteBatch.
 
 
@@ -34,8 +54,12 @@ VARIABLE GLOSSARY
 _pixel
   1x1 white texture used as a "paintbrush" for colored rectangles.
 
-SkyColor / GrassColor / RoadColor / CurbColor
-  Tint colors for sky, grass, road surface, and road edges.
+_roadScroll
+  How far the road pattern has scrolled in world units. Advances while
+  Enter is held; wrapped with modulo so it never grows forever.
+
+SkyColor / GrassColor / RoadColor / CurbColor / LineColor
+  Tint colors for sky, grass, road surface, road edges, and center dashes.
 
 SkyHeightFraction
   How much of the screen height is sky (0.4 = top 40%).
@@ -50,6 +74,21 @@ NearRoadHalfWidthFraction
 
 FarCurbWidthPixels / NearCurbWidthPixels
   Black curb thickness in pixels at the horizon (far) and bottom (near).
+
+FarCenterLineHalfWidthPixels / NearCenterLineHalfWidthPixels
+  Half-width of the white center dash at the horizon and bottom.
+
+RoadScrollSpeed
+  World units per second added to _roadScroll while Enter is held.
+
+DashLength / GapLength
+  Length of the painted dash and the empty gap in world units.
+  Together they make one stripe period. Keep these small (short dash,
+  modest gap) for a dense Pole Position–style center line.
+
+DepthEpsilon
+  Small floor for depthFromHorizon so 1/depth never divides by zero
+  at the horizon.
 
 horizonRow
   Y pixel where sky meets ground. Road drawing starts here.
@@ -84,3 +123,5 @@ Left curb starts at:  roadCenterX - halfRoadWidth - curbWidth
 Gray road starts at:  roadCenterX - halfRoadWidth
                       width = halfRoadWidth * 2
 Right curb starts at: roadCenterX + halfRoadWidth
+Center dash (if any): roadCenterX - halfLineWidth
+                      width = halfLineWidth * 2

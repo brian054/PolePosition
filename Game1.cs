@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
@@ -9,17 +10,25 @@ public class Game1 : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private Texture2D _pixel;
+    private float _roadScroll;
 
     private static readonly Color SkyColor = new(100, 160, 255);
     private static readonly Color GrassColor = new(40, 160, 60);
     private static readonly Color RoadColor = new(120, 120, 120);
     private static readonly Color CurbColor = Color.Black;
+    private static readonly Color LineColor = Color.White;
 
     private const float SkyHeightFraction = 0.4f;
     private const float FarRoadHalfWidthFraction = 0.1f;
     private const float NearRoadHalfWidthFraction = 0.45f;
     private const float FarCurbWidthPixels = 2f;
     private const float NearCurbWidthPixels = 16f;
+    private const float FarCenterLineHalfWidthPixels = 1f;
+    private const float NearCenterLineHalfWidthPixels = 4f;
+    private const float RoadScrollSpeed = 25f;
+    private const float DashLength = 1.5f;
+    private const float GapLength = 2.5f;
+    private const float DepthEpsilon = 0.02f;
 
     public Game1()
     {
@@ -43,8 +52,15 @@ public class Game1 : Game
 
     protected override void Update(GameTime gameTime)
     {
-        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+        var keyboard = Keyboard.GetState();
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || keyboard.IsKeyDown(Keys.Escape))
             Exit();
+
+        if (keyboard.IsKeyDown(Keys.Enter))
+        {
+            float period = DashLength + GapLength;
+            _roadScroll = (_roadScroll + RoadScrollSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds) % period;
+        }
 
         base.Update(gameTime);
     }
@@ -78,6 +94,24 @@ public class Game1 : Game
                 _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth - curbWidth, screenRow, curbWidth, 1), CurbColor);
                 _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth, screenRow, halfRoadWidth * 2, 1), RoadColor);
                 _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX + halfRoadWidth, screenRow, curbWidth, 1), CurbColor);
+
+                float worldZ = 1f / Math.Max(depthFromHorizon, DepthEpsilon);
+                float stripePos = worldZ + _roadScroll;
+                float period = DashLength + GapLength;
+                float phase = stripePos % period;
+                if (phase < 0f)
+                    phase += period;
+
+                if (phase < DashLength)
+                {
+                    int halfLineWidth = (int)(FarCenterLineHalfWidthPixels
+                        + depthFromHorizon * (NearCenterLineHalfWidthPixels - FarCenterLineHalfWidthPixels));
+                    halfLineWidth = Math.Max(halfLineWidth, 1);
+                    _spriteBatch.Draw(
+                        _pixel,
+                        new Rectangle(roadCenterX - halfLineWidth, screenRow, halfLineWidth * 2, 1),
+                        LineColor);
+                }
             }
         }
 
