@@ -13,8 +13,8 @@ Each row draws up to eight short bars around the screen center:
     4) right rumble curb (red or white)
     5) right outer edge (thin black)
     6) white center dash (only on short-period dash rows)
-    7) yellow left edge dash (only on long-period dash rows)
-    8) yellow right edge dash (only on long-period dash rows)
+    7) yellow left edge dash (inset from the rumble)
+    8) yellow right edge dash (inset from the rumble)
 
 Rows near the horizon are narrow (far away).
 Rows near the bottom are wide (close to the camera).
@@ -48,6 +48,7 @@ Rumble curb (dense equal red/white):
 Yellow edge line (longest period):
   yellowPhase = stripePos % (YellowDashLength + YellowGapLength)
   If yellowPhase is in the dash half: draw the yellow inner-edge dashes.
+  They sit inward from the rumble so a strip of gray shows between them.
 
 The yellow line is not a second speed. Its dashes and gaps are longer, so
 fewer cycles pass per second and it looks slower — matching the arcade.
@@ -73,8 +74,9 @@ FLOW OF Draw()
    f. Decide center dash vs gap, rumble red vs white, and yellow dash vs gap
    g. Draw outer black, rumble, gray road, rumble, outer black
    h. If center dash: draw white center stripe
-   i. If yellow dash: draw left/right yellow edge dashes
-5. End SpriteBatch.
+   i. If yellow dash: draw left/right yellow edge dashes, inset from the rumble
+5. Draw the player car rectangle, centered on the road near the bottom.
+6. End SpriteBatch.
 
 
 VARIABLE GLOSSARY
@@ -92,9 +94,9 @@ _currentSpeed
   or Space is held, ramps down when both are released.
 
 SkyColor / GrassColor / RoadColor / OuterEdgeColor / CurbRed / CurbWhite /
-LineColor / YellowLineColor
+LineColor / YellowLineColor / CarColor
   Tint colors for sky, grass, road surface, thin outer edge, rumble
-  curbs, center dashes, and yellow edge dashes.
+  curbs, center dashes, yellow edge dashes, and the player car.
 
 SkyHeightFraction
   How much of the screen height is sky (0.4 = top 40%).
@@ -120,6 +122,10 @@ FarCenterLineHalfWidthPixels / NearCenterLineHalfWidthPixels
 FarSideLineWidthPixels / NearSideLineWidthPixels
   Full width of each yellow edge dash at the horizon and bottom.
 
+FarYellowInsetPixels / NearYellowInsetPixels
+  How far the yellow dash sits inward from the rumble, so gray asphalt
+  shows between them.
+
 MaxRoadSpeed
   Top scroll speed in world units per second.
 
@@ -140,7 +146,14 @@ RumbleRedLength / RumbleWhiteLength
 
 YellowDashLength / YellowGapLength
   Length of the yellow edge dash and its gap. Longer than the center period
-  so the yellow line is easier to see and appears to move slower.
+  so the yellow line appears to move slower.
+
+CarWidthFraction / CarHeightFraction
+  Player car size as a fraction of the window width and height.
+
+CarBottomMarginFraction
+  How far the car sits above the bottom of the window, as a fraction of
+  height, so some road shows under it.
 
 DepthEpsilon
   Small floor for depthFromHorizon so 1/depth never divides by zero
@@ -190,7 +203,7 @@ Right outer edge:     roadCenterX + halfRoadWidth + curbWidth
                       width = outerEdgeWidth
 Center dash (if any): roadCenterX - halfLineWidth
                       width = halfLineWidth * 2
-Left yellow dash:     roadCenterX - halfRoadWidth
+Left yellow dash:     roadCenterX - halfRoadWidth + yellowInset
                       width = sideLineWidth
-Right yellow dash:    roadCenterX + halfRoadWidth - sideLineWidth
+Right yellow dash:    roadCenterX + halfRoadWidth - yellowInset - sideLineWidth
                       width = sideLineWidth

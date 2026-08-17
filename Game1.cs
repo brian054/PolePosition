@@ -21,6 +21,7 @@ public class Game1 : Game
     private static readonly Color CurbWhite = Color.White;
     private static readonly Color LineColor = Color.White;
     private static readonly Color YellowLineColor = new(240, 200, 40);
+    private static readonly Color CarColor = new(230, 40, 50);
 
     private const float SkyHeightFraction = 0.4f;
     private const float FarRoadHalfWidthFraction = 0.1f;
@@ -33,6 +34,8 @@ public class Game1 : Game
     private const float NearCenterLineHalfWidthPixels = 4f;
     private const float FarSideLineWidthPixels = 4f;
     private const float NearSideLineWidthPixels = 10f;
+    private const float FarYellowInsetPixels = 4f;
+    private const float NearYellowInsetPixels = 14f;
     private const float MaxRoadSpeed = 20f;
     private const float RoadAcceleration = 9f;
     private const float RoadDeceleration = 12f;
@@ -43,6 +46,9 @@ public class Game1 : Game
     private const float YellowDashLength = 6f;
     private const float YellowGapLength = 10f;
     private const float DepthEpsilon = 0.02f;
+    private const float CarWidthFraction = 0.20f;
+    private const float CarHeightFraction = 0.18f;
+    private const float CarBottomMarginFraction = 0.15f;
 
     public Game1()
     {
@@ -159,17 +165,28 @@ public class Game1 : Game
                     int sideLineWidth = (int)(FarSideLineWidthPixels
                         + depthFromHorizon * (NearSideLineWidthPixels - FarSideLineWidthPixels));
                     sideLineWidth = Math.Max(sideLineWidth, 1);
+                    int yellowInset = (int)(FarYellowInsetPixels
+                        + depthFromHorizon * (NearYellowInsetPixels - FarYellowInsetPixels));
+                    yellowInset = Math.Max(yellowInset, 1);
                     _spriteBatch.Draw(
                         _pixel,
-                        new Rectangle(roadCenterX - halfRoadWidth, screenRow, sideLineWidth, 1),
+                        new Rectangle(roadCenterX - halfRoadWidth + yellowInset, screenRow, sideLineWidth, 1),
                         YellowLineColor);
                     _spriteBatch.Draw(
                         _pixel,
-                        new Rectangle(roadCenterX + halfRoadWidth - sideLineWidth, screenRow, sideLineWidth, 1),
+                        new Rectangle(roadCenterX + halfRoadWidth - yellowInset - sideLineWidth, screenRow, sideLineWidth, 1),
                         YellowLineColor);
                 }
             }
         }
+
+        int carWidth = Math.Max((int)(viewport.Width * CarWidthFraction), 1);
+        int carHeight = Math.Max((int)(viewport.Height * CarHeightFraction), 1);
+        int carBottomMargin = (int)(viewport.Height * CarBottomMarginFraction);
+        _spriteBatch.Draw(
+            _pixel,
+            new Rectangle(roadCenterX - carWidth / 2, viewport.Height - carHeight - carBottomMargin, carWidth, carHeight),
+            CarColor);
 
         _spriteBatch.End();
 
