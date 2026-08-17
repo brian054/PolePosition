@@ -25,6 +25,8 @@ public class Game1 : Game
     private const float NearCurbWidthPixels = 16f;
     private const float FarCenterLineHalfWidthPixels = 1f;
     private const float NearCenterLineHalfWidthPixels = 4f;
+    private const float FarSideLineWidthPixels = 2f;
+    private const float NearSideLineWidthPixels = 6f;
     private const float RoadScrollSpeed = 25f;
     private const float DashLength = 1.5f;
     private const float GapLength = 2.5f;
@@ -56,7 +58,7 @@ public class Game1 : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || keyboard.IsKeyDown(Keys.Escape))
             Exit();
 
-        if (keyboard.IsKeyDown(Keys.Enter))
+        if (keyboard.IsKeyDown(Keys.Enter) || keyboard.IsKeyDown(Keys.Space))
         {
             float period = DashLength + GapLength;
             _roadScroll = (_roadScroll + RoadScrollSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds) % period;
@@ -107,9 +109,21 @@ public class Game1 : Game
                     int halfLineWidth = (int)(FarCenterLineHalfWidthPixels
                         + depthFromHorizon * (NearCenterLineHalfWidthPixels - FarCenterLineHalfWidthPixels));
                     halfLineWidth = Math.Max(halfLineWidth, 1);
+                    int sideLineWidth = (int)(FarSideLineWidthPixels
+                        + depthFromHorizon * (NearSideLineWidthPixels - FarSideLineWidthPixels));
+                    sideLineWidth = Math.Max(sideLineWidth, 1);
+
                     _spriteBatch.Draw(
                         _pixel,
                         new Rectangle(roadCenterX - halfLineWidth, screenRow, halfLineWidth * 2, 1),
+                        LineColor);
+                    _spriteBatch.Draw(
+                        _pixel,
+                        new Rectangle(roadCenterX - halfRoadWidth, screenRow, sideLineWidth, 1),
+                        LineColor);
+                    _spriteBatch.Draw(
+                        _pixel,
+                        new Rectangle(roadCenterX + halfRoadWidth - sideLineWidth, screenRow, sideLineWidth, 1),
                         LineColor);
                 }
             }
