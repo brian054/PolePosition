@@ -6,13 +6,15 @@ THE TRICK
 The road is not one big shape. It is painted one horizontal row at a time
 from the horizon down to the bottom of the screen.
 
-Each row draws up to six short bars around the screen center:
-    1) left curb (black)
-    2) gray road
-    3) right curb (black)
-    4) white center dash (only on dash rows, not gap rows)
-    5) white left edge dash (same dash rows as the center)
-    6) white right edge dash (same dash rows as the center)
+Each row draws up to eight short bars around the screen center:
+    1) left outer edge (thin black, against the grass)
+    2) left rumble curb (red or white)
+    3) gray road
+    4) right rumble curb (red or white)
+    5) right outer edge (thin black)
+    6) white center dash (only on short-period dash rows)
+    7) yellow left edge dash (only on long-period dash rows)
+    8) yellow right edge dash (only on long-period dash rows)
 
 Rows near the horizon are narrow (far away).
 Rows near the bottom are wide (close to the camera).
@@ -21,21 +23,40 @@ That creates the classic trapezoid / perspective look.
 
 SCROLL / INFINITE ROAD
 ----------------------
-Holding Enter or Space advances _roadScroll at a fixed RoadScrollSpeed.
-Releasing both keys freezes the road.
+Holding Enter or Space ramps _currentSpeed up toward MaxRoadSpeed.
+Releasing both keys ramps speed back down to a stop. _roadScroll only
+advances while speed is above zero.
+
+Original Pole Position paints every marking from one road texture with
+one scroll. We do the same: one _roadScroll, three spatial periods.
 
 For each screen row we map depth to a world Z with:
   worldZ = 1 / max(depthFromHorizon, DepthEpsilon)
 
 Then:
   stripePos = worldZ + _roadScroll
-  phase     = stripePos % (DashLength + GapLength)
 
-If phase is in the dash half of the period, draw the center line and
-the left/right edge dashes. They share the same scroll, so they stay
-locked together as the road moves.
+Center line (short period):
+  phase = stripePos % (DashLength + GapLength)
+  If phase is in the dash half: draw the white center line.
+
+Rumble curb (dense equal red/white):
+  rumblePhase = stripePos % (RumbleRedLength + RumbleWhiteLength)
+  Paint the curb red or white from that phase. Short equal lengths make
+  the red/white blocks tight, like the arcade kerb.
+
+Yellow edge line (longest period):
+  yellowPhase = stripePos % (YellowDashLength + YellowGapLength)
+  If yellowPhase is in the dash half: draw the yellow inner-edge dashes.
+
+The yellow line is not a second speed. Its dashes and gaps are longer, so
+fewer cycles pass per second and it looks slower — matching the arcade.
+
 Because worldZ packs near the horizon, dashes look denser far away
 and longer up close — that sells the infinite-road motion.
+
+_roadScroll wraps on the yellow period (the longest one) so all three
+patterns stay continuous.
 
 
 FLOW OF Draw()
@@ -47,10 +68,12 @@ FLOW OF Draw()
    a. depthFromHorizon = how far down this row is (0 = far, 1 = near)
    b. halfRoadWidth    = lerp far road width -> near road width
    c. curbWidth        = lerp far curb width -> near curb width
-   d. Draw left curb, gray road, right curb centered on roadCenterX
-                  e. Map depth -> worldZ, add _roadScroll, decide dash vs gap
-                  f. If dash: draw white center stripe and left/right edge
-                     dashes (widths lerped far -> near)
+   d. outerEdgeWidth   = lerp far outer-edge width -> near outer-edge width
+   e. Map depth -> worldZ, add _roadScroll
+   f. Decide center dash vs gap, rumble red vs white, and yellow dash vs gap
+   g. Draw outer black, rumble, gray road, rumble, outer black
+   h. If center dash: draw white center stripe
+   i. If yellow dash: draw left/right yellow edge dashes
 5. End SpriteBatch.
 
 
@@ -60,11 +83,18 @@ _pixel
   1x1 white texture used as a "paintbrush" for colored rectangles.
 
 _roadScroll
-  How far the road pattern has scrolled in world units. Advances while
-  Enter or Space is held; wrapped with modulo so it never grows forever.
+  How far the road pattern has scrolled in world units. Advances at
+  _currentSpeed; wrapped on the yellow period so it never grows forever
+  and all three stripe patterns stay continuous.
 
-SkyColor / GrassColor / RoadColor / CurbColor / LineColor
-  Tint colors for sky, grass, road surface, road edges, and center dashes.
+_currentSpeed
+  Current scroll speed in world units per second. Ramps up while Enter
+  or Space is held, ramps down when both are released.
+
+SkyColor / GrassColor / RoadColor / OuterEdgeColor / CurbRed / CurbWhite /
+LineColor / YellowLineColor
+  Tint colors for sky, grass, road surface, thin outer edge, rumble
+  curbs, center dashes, and yellow edge dashes.
 
 SkyHeightFraction
   How much of the screen height is sky (0.4 = top 40%).
@@ -78,21 +108,39 @@ NearRoadHalfWidthFraction
   of screen width.
 
 FarCurbWidthPixels / NearCurbWidthPixels
-  Black curb thickness in pixels at the horizon (far) and bottom (near).
+  Red/white rumble thickness in pixels at the horizon (far) and bottom (near).
+  Keep these fairly wide so the kerb reads like arcade Pole Position.
+
+FarOuterEdgeWidthPixels / NearOuterEdgeWidthPixels
+  Thin black outline outside the rumble at the horizon and bottom.
 
 FarCenterLineHalfWidthPixels / NearCenterLineHalfWidthPixels
   Half-width of the white center dash at the horizon and bottom.
 
 FarSideLineWidthPixels / NearSideLineWidthPixels
-  Full width of each white edge dash at the horizon and bottom.
+  Full width of each yellow edge dash at the horizon and bottom.
 
-RoadScrollSpeed
-  World units per second added to _roadScroll while Enter or Space is held.
+MaxRoadSpeed
+  Top scroll speed in world units per second.
+
+RoadAcceleration / RoadDeceleration
+  How quickly _currentSpeed climbs toward MaxRoadSpeed while accelerating,
+  and how quickly it falls when the keys are released.
 
 DashLength / GapLength
-  Length of the painted dash and the empty gap in world units.
-  Together they make one stripe period. Keep these small (short dash,
-  modest gap) for a dense Pole Position–style center line.
+  Length of the painted center dash and the empty gap in world units.
+  Together they make the short stripe period used by the center line.
+  Keep these small (short dash, modest gap) for a dense Pole Position–style
+  center line.
+
+RumbleRedLength / RumbleWhiteLength
+  Length of each red and white rumble block. Keep these short and equal so
+  the kerb has tight gaps between colors. Around 0.8 each is a fast
+  Pole Position–style checker.
+
+YellowDashLength / YellowGapLength
+  Length of the yellow edge dash and its gap. Longer than the center period
+  so the yellow line is easier to see and appears to move slower.
 
 DepthEpsilon
   Small floor for depthFromHorizon so 1/depth never divides by zero
@@ -122,18 +170,27 @@ halfRoadWidth
   Half the gray road width on this screenRow, in pixels.
 
 curbWidth
-  Black curb width on this screenRow, in pixels.
+  Red/white rumble width on this screenRow, in pixels.
+
+outerEdgeWidth
+  Thin black outer-edge width on this screenRow, in pixels.
 
 
 DRAWING ONE ROW (around roadCenterX)
 ------------------------------------
-Left curb starts at:  roadCenterX - halfRoadWidth - curbWidth
+Left outer edge:      roadCenterX - halfRoadWidth - curbWidth - outerEdgeWidth
+                      width = outerEdgeWidth
+Left rumble:          roadCenterX - halfRoadWidth - curbWidth
+                      width = curbWidth
 Gray road starts at:  roadCenterX - halfRoadWidth
                       width = halfRoadWidth * 2
-Right curb starts at: roadCenterX + halfRoadWidth
+Right rumble:         roadCenterX + halfRoadWidth
+                      width = curbWidth
+Right outer edge:     roadCenterX + halfRoadWidth + curbWidth
+                      width = outerEdgeWidth
 Center dash (if any): roadCenterX - halfLineWidth
                       width = halfLineWidth * 2
-Left edge dash:       roadCenterX - halfRoadWidth
+Left yellow dash:     roadCenterX - halfRoadWidth
                       width = sideLineWidth
-Right edge dash:      roadCenterX + halfRoadWidth - sideLineWidth
+Right yellow dash:    roadCenterX + halfRoadWidth - sideLineWidth
                       width = sideLineWidth

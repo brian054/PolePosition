@@ -11,25 +11,37 @@ public class Game1 : Game
     private SpriteBatch _spriteBatch;
     private Texture2D _pixel;
     private float _roadScroll;
+    private float _currentSpeed;
 
     private static readonly Color SkyColor = new(100, 160, 255);
     private static readonly Color GrassColor = new(40, 160, 60);
     private static readonly Color RoadColor = new(120, 120, 120);
-    private static readonly Color CurbColor = Color.Black;
+    private static readonly Color OuterEdgeColor = Color.Black;
+    private static readonly Color CurbRed = new(220, 40, 40);
+    private static readonly Color CurbWhite = Color.White;
     private static readonly Color LineColor = Color.White;
+    private static readonly Color YellowLineColor = new(240, 200, 40);
 
     private const float SkyHeightFraction = 0.4f;
     private const float FarRoadHalfWidthFraction = 0.1f;
     private const float NearRoadHalfWidthFraction = 0.45f;
-    private const float FarCurbWidthPixels = 2f;
-    private const float NearCurbWidthPixels = 16f;
+    private const float FarCurbWidthPixels = 5f;
+    private const float NearCurbWidthPixels = 32f;
+    private const float FarOuterEdgeWidthPixels = 1f;
+    private const float NearOuterEdgeWidthPixels = 3f;
     private const float FarCenterLineHalfWidthPixels = 1f;
     private const float NearCenterLineHalfWidthPixels = 4f;
-    private const float FarSideLineWidthPixels = 2f;
-    private const float NearSideLineWidthPixels = 6f;
-    private const float RoadScrollSpeed = 25f;
+    private const float FarSideLineWidthPixels = 4f;
+    private const float NearSideLineWidthPixels = 10f;
+    private const float MaxRoadSpeed = 20f;
+    private const float RoadAcceleration = 9f;
+    private const float RoadDeceleration = 12f;
     private const float DashLength = 1.5f;
     private const float GapLength = 2.5f;
+    private const float RumbleRedLength = 0.8f;
+    private const float RumbleWhiteLength = 0.8f;
+    private const float YellowDashLength = 6f;
+    private const float YellowGapLength = 10f;
     private const float DepthEpsilon = 0.02f;
 
     public Game1()
@@ -58,10 +70,18 @@ public class Game1 : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || keyboard.IsKeyDown(Keys.Escape))
             Exit();
 
-        if (keyboard.IsKeyDown(Keys.Enter) || keyboard.IsKeyDown(Keys.Space))
+        float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        bool accelerating = keyboard.IsKeyDown(Keys.Enter) || keyboard.IsKeyDown(Keys.Space);
+        if (accelerating)
+            _currentSpeed = Math.Min(MaxRoadSpeed, _currentSpeed + RoadAcceleration * dt);
+        else
+            _currentSpeed = Math.Max(0f, _currentSpeed - RoadDeceleration * dt);
+
+        if (_currentSpeed > 0f)
         {
-            float period = DashLength + GapLength;
-            _roadScroll = (_roadScroll + RoadScrollSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds) % period;
+            // Wrap on the yellow period so center, rumble, and yellow stay continuous.
+            float wrapPeriod = YellowDashLength + YellowGapLength;
+            _roadScroll = (_roadScroll + _currentSpeed * dt) % wrapPeriod;
         }
 
         base.Update(gameTime);
@@ -92,39 +112,61 @@ public class Game1 : Game
                     + depthFromHorizon * (nearRoadHalfWidthPixels - farRoadHalfWidthPixels));
                 int curbWidth = (int)(FarCurbWidthPixels
                     + depthFromHorizon * (NearCurbWidthPixels - FarCurbWidthPixels));
-
-                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth - curbWidth, screenRow, curbWidth, 1), CurbColor);
-                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth, screenRow, halfRoadWidth * 2, 1), RoadColor);
-                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX + halfRoadWidth, screenRow, curbWidth, 1), CurbColor);
+                int outerEdgeWidth = (int)(FarOuterEdgeWidthPixels
+                    + depthFromHorizon * (NearOuterEdgeWidthPixels - FarOuterEdgeWidthPixels));
+                outerEdgeWidth = Math.Max(outerEdgeWidth, 1);
 
                 float worldZ = 1f / Math.Max(depthFromHorizon, DepthEpsilon);
                 float stripePos = worldZ + _roadScroll;
+
                 float period = DashLength + GapLength;
                 float phase = stripePos % period;
                 if (phase < 0f)
                     phase += period;
+                bool centerDash = phase < DashLength;
 
-                if (phase < DashLength)
+                float rumblePeriod = RumbleRedLength + RumbleWhiteLength;
+                float rumblePhase = stripePos % rumblePeriod;
+                if (rumblePhase < 0f)
+                    rumblePhase += rumblePeriod;
+                Color rumbleColor = rumblePhase < RumbleRedLength ? CurbRed : CurbWhite;
+
+                float yellowPeriod = YellowDashLength + YellowGapLength;
+                float yellowPhase = stripePos % yellowPeriod;
+                if (yellowPhase < 0f)
+                    yellowPhase += yellowPeriod;
+                bool yellowDash = yellowPhase < YellowDashLength;
+
+                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth - curbWidth - outerEdgeWidth, screenRow, outerEdgeWidth, 1), OuterEdgeColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth - curbWidth, screenRow, curbWidth, 1), rumbleColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX - halfRoadWidth, screenRow, halfRoadWidth * 2, 1), RoadColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX + halfRoadWidth, screenRow, curbWidth, 1), rumbleColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(roadCenterX + halfRoadWidth + curbWidth, screenRow, outerEdgeWidth, 1), OuterEdgeColor);
+
+                if (centerDash)
                 {
                     int halfLineWidth = (int)(FarCenterLineHalfWidthPixels
                         + depthFromHorizon * (NearCenterLineHalfWidthPixels - FarCenterLineHalfWidthPixels));
                     halfLineWidth = Math.Max(halfLineWidth, 1);
-                    int sideLineWidth = (int)(FarSideLineWidthPixels
-                        + depthFromHorizon * (NearSideLineWidthPixels - FarSideLineWidthPixels));
-                    sideLineWidth = Math.Max(sideLineWidth, 1);
-
                     _spriteBatch.Draw(
                         _pixel,
                         new Rectangle(roadCenterX - halfLineWidth, screenRow, halfLineWidth * 2, 1),
                         LineColor);
+                }
+
+                if (yellowDash)
+                {
+                    int sideLineWidth = (int)(FarSideLineWidthPixels
+                        + depthFromHorizon * (NearSideLineWidthPixels - FarSideLineWidthPixels));
+                    sideLineWidth = Math.Max(sideLineWidth, 1);
                     _spriteBatch.Draw(
                         _pixel,
                         new Rectangle(roadCenterX - halfRoadWidth, screenRow, sideLineWidth, 1),
-                        LineColor);
+                        YellowLineColor);
                     _spriteBatch.Draw(
                         _pixel,
                         new Rectangle(roadCenterX + halfRoadWidth - sideLineWidth, screenRow, sideLineWidth, 1),
-                        LineColor);
+                        YellowLineColor);
                 }
             }
         }
